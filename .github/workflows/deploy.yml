@@ -1,4 +1,3 @@
-# .github/workflows/deploy.yml
 name: Deploy Flutter Web to GitHub Pages
 
 on:
@@ -6,15 +5,14 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
-    # Necesario para poder escribir en gh-pages y obtener token OIDC
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -23,7 +21,8 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.0.0'    # ajusta a tu versión de Flutter
+          channel: stable
+          flutter-version: '3.23.3'    # o la última estable que incluya Dart 3.7+
 
       - name: Get dependencies
         run: flutter pub get
