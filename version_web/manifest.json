@@ -1,6 +1,6 @@
 ﻿{
-  "name": "Cement Pro",
-  "short_name": "CementPro",
+  "name": "Cement Calc",
+  "short_name": "CementCalc",
   "description": "Cement calculator application",
   "start_url": ".",
   "display": "standalone",
