@@ -1,0 +1,21 @@
+﻿{
+  "name": "Cement Pro",
+  "short_name": "CementPro",
+  "description": "Cement calculator application",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
