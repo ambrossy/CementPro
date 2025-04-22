@@ -1,6 +1,6 @@
 {
-    "name": "calculadora_cemento",
-    "short_name": "calculadora_cemento",
+    "name": "Cement Calc",
+    "short_name": "Cement Calc",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
