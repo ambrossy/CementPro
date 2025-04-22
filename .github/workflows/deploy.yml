@@ -2,8 +2,7 @@ name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -18,11 +17,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Flutter
+      - name: Setup Flutter (última stable)
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
-          flutter-version: '3.23.3'    # o la última estable que incluya Dart 3.7+
+          channel: stable       # sin flutter-version para siempre pillar la última estable
 
       - name: Get dependencies
         run: flutter pub get
@@ -30,7 +28,7 @@ jobs:
       - name: Build web release
         run: flutter build web --release
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy to GH Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
