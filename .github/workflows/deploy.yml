@@ -26,7 +26,7 @@ jobs:
         run: flutter pub get
 
       - name: Build web release
-        run: flutter build web --release
+        run: flutter build web --release --base-href /cementcalc/
 
       - name: Deploy to GH Pages
         uses: peaceiris/actions-gh-pages@v3
