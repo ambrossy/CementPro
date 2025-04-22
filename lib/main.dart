@@ -24,7 +24,7 @@ class CementCalcApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Cement Pro',
+      title: 'Cement Calc',
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF1E1E1E),
         textTheme: const TextTheme(
