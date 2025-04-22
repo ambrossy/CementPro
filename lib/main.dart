@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path_provider/path_provider.dart';
 
 // Importa el archivo de gestión de almacenamiento con condicional
+// Comentario de prueba
 import 'storage/storage_platform.dart';
 
 void main() {
