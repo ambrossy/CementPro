@@ -1,38 +1,39 @@
+# .github/workflows/deploy.yml
 name: Deploy Flutter Web to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    # Necesario para poder escribir en gh-pages y obtener token OIDC
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
     steps:
-      # 1) Clona tu código
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      # 2) Instala Flutter
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'latest'
+          flutter-version: '3.0.0'    # ajusta a tu versión de Flutter
 
-      # 3) Activa la compilación web y recupera dependencias
-      - name: Flutter: enable web & get packages
-        run: |
-          flutter config --enable-web
-          flutter pub get
+      - name: Get dependencies
+        run: flutter pub get
 
-      # 4) Compila tu PWA en modo release
-      - name: Flutter: build web
+      - name: Build web release
         run: flutter build web --release
 
-      # 5) Publica build/web en la rama gh-pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
-          # Opcional: personaliza el commit de GH-Pages
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
+          publish_branch: gh-pages
