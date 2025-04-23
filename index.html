@@ -32,6 +32,16 @@
   <title>Cement Calc</title>
   <link rel="manifest" href="manifest.json">
 </head>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register(
+        '/flutter_service_worker.js'
+      );
+    });
+  }
+</script>
+
 <body>
   <script src="flutter_bootstrap.js" async></script>
 </body>
