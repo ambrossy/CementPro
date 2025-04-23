@@ -7,7 +7,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path_provider/path_provider.dart';
 
 // Importa el archivo de gestión de almacenamiento con condicional
-// Comentario de prueba
 import 'storage/storage_platform.dart';
 
 void main() {
@@ -56,6 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
   double weight = 1.8;
   List<int> deletedHistory = [];
 
+  bool classicMode = false;
+  String digitMode = 'XX'; // opciones: 'XX' o 'XXX'
+
   @override
   void initState() {
     super.initState();
@@ -69,22 +71,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadData() async {
     if (kIsWeb) {
-      // En entorno web, usar localStorage
       final storedNumbers = getFromLocalStorage('numbers');
       final storedSurface = getFromLocalStorage('surface');
       final storedWeight = getFromLocalStorage('weight');
-
-      if (storedNumbers != null) {
-        numbers = List<int>.from(json.decode(storedNumbers));
-      }
-
-      if (storedSurface != null) {
-        surface = double.tryParse(storedSurface) ?? 1.0;
-      }
-
-      if (storedWeight != null) {
-        weight = double.tryParse(storedWeight) ?? 1.8;
-      }
+      final storedClassic = getFromLocalStorage('classicMode');
+      final storedMode = getFromLocalStorage('digitMode');
+      if (storedNumbers != null) numbers = List<int>.from(json.decode(storedNumbers));
+      if (storedSurface != null) surface = double.tryParse(storedSurface) ?? 1.0;
+      if (storedWeight != null) weight = double.tryParse(storedWeight) ?? 1.8;
+      classicMode = storedClassic == 'true';
+      if (storedMode == 'XX' || storedMode == 'XXX') digitMode = storedMode!;
     } else {
       try {
         final file = await _localFile;
@@ -94,6 +90,10 @@ class _HomeScreenState extends State<HomeScreen> {
             numbers = List<int>.from(content['numbers']);
             surface = content['surface'] ?? 1.0;
             weight = content['weight'] ?? 1.8;
+            classicMode = content['classicMode'] ?? false;
+            if (content['digitMode'] == 'XX' || content['digitMode'] == 'XXX') {
+              digitMode = content['digitMode'];
+            }
           });
         }
       } catch (_) {}
@@ -102,16 +102,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _saveData() async {
     if (kIsWeb) {
-      // En entorno web, usar localStorage
       saveToLocalStorage('numbers', json.encode(numbers));
       saveToLocalStorage('surface', surface.toString());
       saveToLocalStorage('weight', weight.toString());
+      saveToLocalStorage('classicMode', classicMode.toString());
+      saveToLocalStorage('digitMode', digitMode);
     } else {
       final file = await _localFile;
       final content = json.encode({
         'numbers': numbers,
         'surface': surface,
         'weight': weight,
+        'classicMode': classicMode,
+        'digitMode': digitMode,
       });
       await file.writeAsString(content);
     }
@@ -119,48 +122,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _wipeData() async {
     if (kIsWeb) {
-      // En entorno web, limpiar localStorage
       clearLocalStorage();
     } else {
       final file = await _localFile;
-      if (await file.exists()) {
-        await file.delete();
-      }
+      if (await file.exists()) await file.delete();
     }
     setState(() {
       numbers.clear();
       surface = 1.0;
       weight = 1.8;
       deletedHistory.clear();
+      classicMode = false;
+      digitMode = 'XX';
     });
   }
 
-  void _handleNumberClick(String value) {
-    setState(() {
-      input += value;
-      buttonClicked = value;
-    });
-    Future.delayed(const Duration(milliseconds: 100), () {
-      setState(() {
-        buttonClicked = '';
-      });
-    });
-  }
-
-  void _handleDelete() {
-    setState(() {
-      input = input.isNotEmpty ? input.substring(0, input.length - 1) : '';
-      buttonClicked = 'del';
-    });
-    Future.delayed(const Duration(milliseconds: 100), () {
-      setState(() {
-        buttonClicked = '';
-      });
-    });
-  }
-
-  void _handleAdd() {
-    if (input.isEmpty) return;
+  void _addValueFromInput() {
     final parsed = int.tryParse(input);
     if (parsed != null) {
       setState(() {
@@ -170,11 +147,50 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       _saveData();
       Future.delayed(const Duration(milliseconds: 100), () {
-        setState(() {
-          buttonClicked = '';
-        });
+        setState(() => buttonClicked = '');
       });
     }
+  }
+
+  void _handleNumberClick(String value) {
+    if (!classicMode) {
+      final limit = digitMode == 'XX' ? 2 : 3;
+      if (input.length < limit) {
+        setState(() {
+          input += value;
+          buttonClicked = value;
+        });
+        if (input.length == limit) {
+          _addValueFromInput();
+        }
+        Future.delayed(const Duration(milliseconds: 100), () {
+          setState(() => buttonClicked = '');
+        });
+      }
+    } else {
+      setState(() {
+        input += value;
+        buttonClicked = value;
+      });
+      Future.delayed(const Duration(milliseconds: 100), () {
+        setState(() => buttonClicked = '');
+      });
+    }
+  }
+
+  void _handleDelete() {
+    setState(() {
+      input = input.isNotEmpty ? input.substring(0, input.length - 1) : '';
+      buttonClicked = 'del';
+    });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      setState(() => buttonClicked = '');
+    });
+  }
+
+  void _handleAdd() {
+    if (input.isEmpty) return;
+    _addValueFromInput();
   }
 
   void _handleUndo() {
@@ -187,9 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _confirmDelete(int index) {
-    setState(() {
-      indexToDelete = index;
-    });
+    setState(() => indexToDelete = index);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -197,15 +211,12 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Delete value?', style: TextStyle(color: Colors.red)),
         content: Text('You are about to delete the value ${numbers[index]}. Are you sure?', style: const TextStyle(color: Colors.white)),
         actions: [
-          TextButton(
-            child: const Text('Cancel'),
-            onPressed: () => Navigator.pop(context),
-          ),
+          TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(context)),
           TextButton(
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
             onPressed: () {
               setState(() {
-                deletedHistory.insert(0, numbers[index]);
+                deletedHistory.insert(0, numbers[indexToDelete!]);
                 numbers.removeAt(indexToDelete!);
               });
               _saveData();
@@ -215,6 +226,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  void _toggleMode() {
+    setState(() {
+      digitMode = digitMode == 'XX' ? 'XXX' : 'XX';
+      buttonClicked = 'mode';
+    });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      setState(() => buttonClicked = '');
+    });
+    _saveData();
   }
 
   void _openConfigDialog() {
@@ -242,6 +264,13 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: const InputDecoration(labelText: 'Specific Weight', labelStyle: TextStyle(color: Colors.white)),
             ),
             const SizedBox(height: 20),
+            SwitchListTile(
+              title: const Text('Classic mode', style: TextStyle(color: Colors.white)),
+              value: classicMode,
+              onChanged: (val) => setState(() => classicMode = val),
+              activeColor: Colors.green,
+            ),
+            const SizedBox(height: 20),
             TextButton(
               onPressed: () {
                 showDialog(
@@ -251,35 +280,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: const Text('Confirm wipe', style: TextStyle(color: Colors.red)),
                     content: const Text('Are you sure you want to delete all data?', style: TextStyle(color: Colors.white)),
                     actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-                      ),
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
                       TextButton(
                         onPressed: () {
                           _wipeData();
                           Navigator.pop(context);
                           Navigator.pop(context);
                         },
-                        child: const Text('WIPE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: const Text('WIPE', style: TextStyle(fontWeight: FontWeight.bold)),
                         style: TextButton.styleFrom(backgroundColor: Colors.red),
                       ),
                     ],
                   ),
                 );
               },
-              child: const Text('WIPE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: const Text('WIPE', style: TextStyle(fontWeight: FontWeight.bold)),
               style: TextButton.styleFrom(backgroundColor: Colors.red),
             ),
           ],
         ),
         actions: [
+          TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(context)),
           TextButton(
-            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-            onPressed: () => Navigator.pop(context),
-          ),
-          TextButton(
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            child: const Text('Save'),
             onPressed: () {
               setState(() {
                 surface = double.tryParse(surfaceController.text.replaceAll(',', '.')) ?? surface;
@@ -308,7 +331,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("Enter a number", style: TextStyle(fontSize: 20, color: Colors.white)),
+                  Text(
+                    classicMode ? 'Cement Calc' : (digitMode == 'XX' ? '2 digits mode' : '3 digits mode'),
+                    style: const TextStyle(fontSize: 20, color: Colors.white),
+                  ),
                   Row(
                     children: [
                       IconButton(
@@ -356,7 +382,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     }),
                     _buildGridButton("0"),
                     _buildGridButton("Del", isDel: true, onPressed: _handleDelete),
-                    _buildGridButton("Add", color: Colors.green, onPressed: _handleAdd),
+                    if (classicMode)
+                      _buildGridButton("Add", color: Colors.green, onPressed: _handleAdd)
+                    else
+                      _buildGridButton("Mode", color: Colors.orange, onPressed: _toggleMode),
                   ],
                 ),
               ),
