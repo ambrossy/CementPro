@@ -230,8 +230,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _toggleMode() {
     setState(() {
+      // Alterna entre modos y limpia buffer
       digitMode = digitMode == 'XX' ? 'XXX' : 'XX';
       buttonClicked = 'mode';
+      input = ''; // limpia buffer al cambiar de modo
     });
     Future.delayed(const Duration(milliseconds: 100), () {
       setState(() => buttonClicked = '');
@@ -240,86 +242,88 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openConfigDialog() {
+    // Animación live del switch con StatefulBuilder
+    bool localClassic = classicMode;
     final surfaceController = TextEditingController(text: surface.toString());
     final weightController = TextEditingController(text: weight.toString());
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('Settings', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: surfaceController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Surface (m²)', labelStyle: TextStyle(color: Colors.white)),
-            ),
-            TextField(
-              controller: weightController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Specific Weight', labelStyle: TextStyle(color: Colors.white)),
-            ),
-            const SizedBox(height: 20),
-            SwitchListTile(
-              title: const Text('Classic mode', style: TextStyle(color: Colors.white)),
-              value: classicMode,
-              onChanged: (val) => setState(() => classicMode = val),
-              activeColor: Colors.green,
-            ),
-            const SizedBox(height: 20),
-            TextButton(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: const Text('Settings', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: surfaceController,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: 'Surface (m²)', labelStyle: TextStyle(color: Colors.white)),
+              ),
+              TextField(
+                controller: weightController,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: 'Specific Weight', labelStyle: TextStyle(color: Colors.white)),
+              ),
+              const SizedBox(height: 20),
+              SwitchListTile(
+                title: const Text('Classic mode', style: TextStyle(color: Colors.white)),
+                value: localClassic,
+                onChanged: (val) => setStateDialog(() => localClassic = val),
+                activeColor: Colors.green,
+              ),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      backgroundColor: Colors.grey[900],
+                      title: const Text('Confirm wipe', style: TextStyle(color: Colors.red)),
+                      content: const Text('Are you sure you want to delete all data?', style: TextStyle(color: Colors.white)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
+                        TextButton(onPressed: () { 
+                          _wipeData(); 
+                          Navigator.pop(context); 
+                          Navigator.pop(context);
+                        }, child: const Text('WIPE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: TextButton.styleFrom(backgroundColor: Colors.red)),
+                      ],
+                    ),
+                  );
+                },
+                child: const Text('WIPE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: TextButton.styleFrom(backgroundColor: Colors.red),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(ctx)),
+             TextButton(
+              child: const Text('Save'),
               onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    backgroundColor: Colors.grey[900],
-                    title: const Text('Confirm wipe', style: TextStyle(color: Colors.red)),
-                    content: const Text('Are you sure you want to delete all data?', style: TextStyle(color: Colors.white)),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                      TextButton(
-                        onPressed: () {
-                          _wipeData();
-                          Navigator.pop(context);
-                          Navigator.pop(context);
-                        },
-                        child: const Text('WIPE', style: TextStyle(fontWeight: FontWeight.bold)),
-                        style: TextButton.styleFrom(backgroundColor: Colors.red),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              child: const Text('WIPE', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: TextButton.styleFrom(backgroundColor: Colors.red),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(context)),
-          TextButton(
-            child: const Text('Save'),
-            onPressed: () {
-              setState(() {
+                setState(() {
+                  classicMode = localClassic;
+                  input = ''; // limpia buffer al cambiar Classic Mode
+                });
                 surface = double.tryParse(surfaceController.text.replaceAll(',', '.')) ?? surface;
                 weight = double.tryParse(weightController.text.replaceAll(',', '.')) ?? weight;
-              });
-              _saveData();
-              Navigator.pop(context);
-            },
-          ),
-        ],
+                _saveData();
+                Navigator.pop(ctx);
+              },
+            )
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final media = numbers.isEmpty ? 0 : (numbers.reduce((a, b) => a + b) / numbers.length);
+    final media = numbers.isEmpty ? 0 : numbers.reduce((a, b) => a + b) / numbers.length;
     final result = media * surface * weight;
 
     return Scaffold(
@@ -337,15 +341,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   Row(
                     children: [
-                      IconButton(
-                        onPressed: _handleUndo,
-                        icon: SvgPicture.asset('assets/undo.svg', width: 24, height: 24),
-                      ),
-                      IconButton(
-                        onPressed: _openConfigDialog,
-                        icon: SvgPicture.asset('assets/settings.svg', width: 24, height: 24),
-                        tooltip: '⚙️ Settings',
-                      ),
+                      IconButton(onPressed: _handleUndo, icon: SvgPicture.asset('assets/undo.svg', width: 24, height: 24)),
+                      IconButton(onPressed: _openConfigDialog, icon: SvgPicture.asset('assets/settings.svg', width: 24, height: 24), tooltip: '⚙️ Settings'),
                     ],
                   ),
                 ],
@@ -356,14 +353,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: double.infinity,
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white12,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  input.isEmpty ? '0' : input,
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
+                decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(10)),
+                child: Text(input.isEmpty ? '0' : input, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
               const SizedBox(height: 20),
               Expanded(
@@ -376,16 +367,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisSpacing: 10,
                   childAspectRatio: 2,
                   children: [
-                    ...List.generate(9, (i) {
-                      final number = (i + 1).toString();
-                      return _buildGridButton(number);
-                    }),
-                    _buildGridButton("0"),
-                    _buildGridButton("Del", isDel: true, onPressed: _handleDelete),
+                    ...List.generate(9, (i) => _buildGridButton((i+1).toString())),
+                    _buildGridButton('0'),
+                    _buildGridButton('Del', isDel: true, onPressed: _handleDelete),
                     if (classicMode)
-                      _buildGridButton("Add", color: Colors.green, onPressed: _handleAdd)
+                      _buildGridButton('Add', color: Colors.green, onPressed: _handleAdd)
                     else
-                      _buildGridButton("Mode", color: Colors.orange, onPressed: _toggleMode),
+                      _buildGridButton('Mode', color: Colors.orange, onPressed: _toggleMode),
                   ],
                 ),
               ),
@@ -397,47 +385,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("AVERAGE", style: TextStyle(fontSize: 10, color: Colors.white)),
-                      Text("${media.toStringAsFixed(2)} mm", style: const TextStyle(fontSize: 16, color: Colors.white)),
-                    ],
+                    children: [const Text('AVERAGE', style: TextStyle(fontSize: 10, color: Colors.white)), Text('${media.toStringAsFixed(2)} mm', style: const TextStyle(fontSize: 16, color: Colors.white))],
                   ),
-                  Text("${numbers.length}", style: const TextStyle(fontSize: 16, color: Colors.red)),
+                  Text('${numbers.length}', style: const TextStyle(fontSize: 16, color: Colors.red)),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text("CEMENT", style: TextStyle(fontSize: 10, color: Colors.white)),
-                      Text("${result.toStringAsFixed(2)} Kg", style: const TextStyle(fontSize: 16, color: Colors.white)),
-                    ],
+                    children: [const Text('CEMENT', style: TextStyle(fontSize: 10, color: Colors.white)), Text('${result.toStringAsFixed(2)} Kg', style: const TextStyle(fontSize: 16, color: Colors.white))],
                   ),
                 ],
               ),
               const SizedBox(height: 10),
               Expanded(
                 child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
-                    childAspectRatio: 2.5,
-                  ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 4, crossAxisSpacing: 4, childAspectRatio: 2.5),
                   itemCount: numbers.length,
-                  itemBuilder: (context, index) {
-                    return GestureDetector(
-                      onTap: () => _confirmDelete(index),
-                      child: Container(
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Colors.white12,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          numbers[index].toString(),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    );
-                  },
+                  itemBuilder: (context, index) => GestureDetector(onTap: () => _confirmDelete(index), child: Container(alignment: Alignment.center, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(8)), child: Text(numbers[index].toString(), style: const TextStyle(color: Colors.white))))
                 ),
               ),
             ],
@@ -447,28 +409,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGridButton(String label,
-      {bool isDel = false, Color? color, VoidCallback? onPressed}) {
+  Widget _buildGridButton(String label, {bool isDel = false, Color? color, VoidCallback? onPressed}) {
     final isClicked = buttonClicked == label.toLowerCase();
     return GestureDetector(
       onTap: onPressed ?? () => _handleNumberClick(label),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         decoration: BoxDecoration(
-          color: isDel
-              ? (isClicked ? Colors.red.shade700 : Colors.red.shade500)
-              : (color != null
-                  ? (isClicked ? color.withOpacity(0.8) : color)
-                  : (isClicked ? Colors.blue.shade700 : Colors.blue.shade900)),
+          color: isDel ? (isClicked ? Colors.red.shade700 : Colors.red.shade500) : (color != null ? (isClicked ? color.withOpacity(0.8) : color) : (isClicked ? Colors.blue.shade700 : Colors.blue.shade900)),
           borderRadius: BorderRadius.circular(14),
           boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
         ),
         alignment: Alignment.center,
-        child: Text(
-          label,
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
-        ),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)),
       ),
     );
   }
