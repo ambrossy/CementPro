@@ -2,8 +2,6 @@
 
 Quick and easy cement calculator built with Flutter.
 
-**Download README:** [Raw Markdown](https://raw.githubusercontent.com/ambrossy/cementcalc/main/README.md)
-
 ## 🔍 Description
 
 CementCalc helps you calculate how many kg of cement you need based on the average thickness of your measurements, the area, and the density.
