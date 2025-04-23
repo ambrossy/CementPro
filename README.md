@@ -48,7 +48,7 @@ CementCalc helps you calculate how many kg of cement you need based on the avera
 ### APK (Android Package)
 - **How to install**: Download the `.apk` from releases or build locally with `flutter build apk`, then sideload on your Android device.  
 - **Pros**: Full native performance, access to all device sensors and features.  
-- **Cons**: Requires manual updates or Play Store listing, larger file size.  
+- **Cons**: Requires manual updates.  
 
 ## 🎮 Usage
 
