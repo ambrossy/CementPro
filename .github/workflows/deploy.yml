@@ -30,7 +30,7 @@ jobs:
           flutter build web \
             --pwa-strategy=offline-first \
             --release \
-            --base-href /<repositorio>/
+            --base-href /cementcalc/  // sustituye "cementcalc" por el nombre de tu carpeta si es distinto
 
       - name: Deploy to GH Pages
         uses: peaceiris/actions-gh-pages@v3
