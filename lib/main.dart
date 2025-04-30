@@ -177,126 +177,144 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openConfigDialog() {
-    final sC = TextEditingController(text: surface.toString());
-    final wC = TextEditingController(text: weight.toString());
-    final oC = TextEditingController(text: avgOffset.toString());
+  final sC = TextEditingController(text: surface.toString());
+  final wC = TextEditingController(text: weight.toString());
+  final oC = TextEditingController(text: avgOffset.toString());
 
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setD) => AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: const Text('Settings', style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: sC,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                    labelText: 'Surface (m²)', labelStyle: TextStyle(color: Colors.white)),
-                style: const TextStyle(color: Colors.white),
+  showDialog(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setD) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text('Settings', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: sC,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Surface (m²)',
+                labelStyle: TextStyle(color: Colors.white),
               ),
-              TextField(
-                controller: wC,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                    labelText: 'Specific Weight', labelStyle: TextStyle(color: Colors.white)),
-                style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
+            ),
+            TextField(
+              controller: wC,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Specific Weight',
+                labelStyle: TextStyle(color: Colors.white),
               ),
-              TextField(
-                controller: oC,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                    labelText: 'Average Offset', labelStyle: TextStyle(color: Colors.white)),
-                style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
+            ),
+            TextField(
+              controller: oC,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Average Offset',
+                labelStyle: TextStyle(color: Colors.white),
               ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () async {
-                  final ok = await showDialog<bool>(
-                    context: ctx,
-                    builder: (_) => AlertDialog(
-                      backgroundColor: Colors.grey[900],
-                      title: const Text('Confirm WIPE LIST', style: TextStyle(color: Colors.red)),
-                      content: const Text('Erase this list?', style: TextStyle(color: Colors.white)),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
-                      ],
-                    ),
-                  );
-                  if (ok == true) {
-                    _wipeList();
-                    Navigator.pop(ctx);
-                  }
-                },
-                style: TextButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('WIPE LIST', style: TextStyle(color: Colors.white)),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () async {
-                  final c1 = await showDialog<bool>(
-                    context: ctx,
-                    builder: (_) => AlertDialog(
-                      backgroundColor: Colors.grey[900],
-                      title: const Text('Confirm WIPE APP', style: TextStyle(color: Colors.red)),
-                      content: const Text('Erase ALL lists & settings?', style: TextStyle(color: Colors.white)),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
-                      ],
-                    ),
-                  );
-                  if (c1 == true) {
-                    final c2 = await showDialog<bool>(
+              style: const TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // WIPE APP
+                TextButton(
+                  onPressed: () async {
+                    final c1 = await showDialog<bool>(
                       context: ctx,
                       builder: (_) => AlertDialog(
                         backgroundColor: Colors.grey[900],
-                        title: const Text('ARE YOU SURE?', style: TextStyle(color: Colors.red)),
-                        content: const Text('This cannot be undone.', style: TextStyle(color: Colors.white)),
+                        title: const Text('Confirm WIPE APP', style: TextStyle(color: Colors.red)),
+                        content: const Text('Erase ALL lists & settings?', style: TextStyle(color: Colors.white)),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes, WIPE APP')),
+                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
                         ],
                       ),
                     );
-                    if (c2 == true) {
-                      numbersMap.forEach((k, v) => v.clear());
-                      surfaceMap.updateAll((_, __) => 1.0);
-                      weightMap.updateAll((_, __) => 1.8);
-                      offsetMap.updateAll((_, __) => 0.0);
-                      listNames.updateAll((k, _) => k);
-                      setState(() { selectedList='A'; input=''; deletedHistory.clear(); digitMode='XX'; });
+                    if (c1 == true) {
+                      final c2 = await showDialog<bool>(
+                        context: ctx,
+                        builder: (_) => AlertDialog(
+                          backgroundColor: Colors.grey[900],
+                          title: const Text('ARE YOU SURE?', style: TextStyle(color: Colors.red)),
+                          content: const Text('This cannot be undone.', style: TextStyle(color: Colors.white)),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes, WIPE APP')),
+                          ],
+                        ),
+                      );
+                      if (c2 == true) {
+                        numbersMap.forEach((k, v) => v.clear());
+                        surfaceMap.updateAll((_, __) => 1.0);
+                        weightMap.updateAll((_, __) => 1.8);
+                        offsetMap.updateAll((_, __) => 0.0);
+                        listNames.updateAll((k, _) => k);
+                        setState(() {
+                          selectedList = 'A';
+                          input = '';
+                          deletedHistory.clear();
+                          digitMode = 'XX';
+                        });
+                      }
+                      Navigator.pop(ctx);
                     }
-                    Navigator.pop(ctx);
-                  }
-                },
-                style: TextButton.styleFrom(backgroundColor: Colors.red.shade700),
-                child: const Text('WIPE APP', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(ctx)),
-            TextButton(
-              child: const Text('Save'),
-              onPressed: () {
-                setState(() {
-                  surface = double.tryParse(sC.text.replaceAll(',', '.')) ?? surface;
-                  weight  = double.tryParse(wC.text.replaceAll(',', '.')) ?? weight;
-                  final t = oC.text.trim().isEmpty ? '0' : oC.text;
-                  avgOffset = double.tryParse(t.replaceAll(',', '.')) ?? 0.0;
-                });
-                Navigator.pop(ctx);
-              },
+                  },
+                  style: TextButton.styleFrom(backgroundColor: Colors.red.shade700),
+                  child: const Text('WIPE APP', style: TextStyle(color: Colors.white)),
+                ),
+
+                // WIPE LIST
+                TextButton(
+                  onPressed: () async {
+                    final ok = await showDialog<bool>(
+                      context: ctx,
+                      builder: (_) => AlertDialog(
+                        backgroundColor: Colors.grey[900],
+                        title: const Text('Confirm WIPE LIST', style: TextStyle(color: Colors.red)),
+                        content: const Text('Erase this list?', style: TextStyle(color: Colors.white)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      _wipeList();
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  style: TextButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('WIPE LIST', style: TextStyle(color: Colors.white)),
+                ),
+              ],
             ),
           ],
         ),
+        actions: [
+          TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(ctx)),
+          TextButton(
+            child: const Text('Save'),
+            onPressed: () {
+              setState(() {
+                surface = double.tryParse(sC.text.replaceAll(',', '.')) ?? surface;
+                weight = double.tryParse(wC.text.replaceAll(',', '.')) ?? weight;
+                final t = oC.text.trim().isEmpty ? '0' : oC.text;
+                avgOffset = double.tryParse(t.replaceAll(',', '.')) ?? 0.0;
+              });
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showListSelector() {
     showDialog(
