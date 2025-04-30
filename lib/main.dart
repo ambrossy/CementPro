@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path_provider/path_provider.dart';
 
+// Importa la API unificada para web y móvil
+import 'storage/storage_platform.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([
@@ -15,7 +18,7 @@ void main() {
 }
 
 class CementCalcApp extends StatelessWidget {
-  const CementCalcApp({super.key});
+  const CementCalcApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -37,23 +40,21 @@ class CementCalcApp extends StatelessWidget {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({Key? key}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // —— Estado de la UI ——
   String input = '';
   String buttonClicked = '';
   String selectedList = 'A';
 
-  // Nombres de lista renombrables
   final Map<String, String> listNames = {
     for (var c in List.generate(9, (i) => String.fromCharCode(65 + i))) c: c,
   };
-
-  // Datos por lista
   final Map<String, List<int>> numbersMap = {
     for (var c in List.generate(9, (i) => String.fromCharCode(65 + i))) c: <int>[],
   };
@@ -66,12 +67,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<String, double> offsetMap = {
     for (var c in List.generate(9, (i) => String.fromCharCode(65 + i))) c: 0.0,
   };
-
   int? indexToDelete;
   List<int> deletedHistory = [];
   String digitMode = 'XX';
 
-  // Accesores
+  // —— Getters de conveniencia ——
   List<int> get numbers => numbersMap[selectedList]!;
   double get surface => surfaceMap[selectedList]!;
   set surface(double v) => surfaceMap[selectedList] = v;
@@ -80,11 +80,90 @@ class _HomeScreenState extends State<HomeScreen> {
   double get avgOffset => offsetMap[selectedList]!;
   set avgOffset(double v) => offsetMap[selectedList] = v;
 
+  double get avg => numbers.isEmpty ? 0.0 : numbers.reduce((a, b) => a + b) / numbers.length;
+  double get adjustedAvg => avg - avgOffset;
+  double get cement => adjustedAvg * surface * weight;
+
+  // —— Persistencia: JSON móvil, localStorage web ——
+  Future<File> get _localFile async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/cement_data.json');
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadData();
   }
 
+  Future<void> _loadData() async {
+    if (kIsWeb) {
+      final s = getFromLocalStorage('appData');
+      if (s != null) {
+        final data = json.decode(s) as Map<String, dynamic>;
+        setState(() {
+          listNames.updateAll((k, _) => data['listNames'][k] as String);
+          numbersMap.updateAll((k, _) => List<int>.from(data['numbersMap'][k]));
+          surfaceMap.updateAll((k, _) => (data['surfaceMap'][k] as num).toDouble());
+          weightMap.updateAll((k, _) => (data['weightMap'][k] as num).toDouble());
+          offsetMap.updateAll((k, _) => (data['offsetMap'][k] as num).toDouble());
+          deletedHistory = List<int>.from(data['deletedHistory'] as List);
+          digitMode = data['digitMode'] as String;
+          selectedList = data['selectedList'] as String;
+        });
+      }
+    } else {
+      try {
+        final file = await _localFile;
+        if (await file.exists()) {
+          final data = json.decode(await file.readAsString()) as Map<String, dynamic>;
+          setState(() {
+            listNames.updateAll((k, _) => data['listNames'][k] as String);
+            numbersMap.updateAll((k, _) => List<int>.from(data['numbersMap'][k]));
+            surfaceMap.updateAll((k, _) => (data['surfaceMap'][k] as num).toDouble());
+            weightMap.updateAll((k, _) => (data['weightMap'][k] as num).toDouble());
+            offsetMap.updateAll((k, _) => (data['offsetMap'][k] as num).toDouble());
+            deletedHistory = List<int>.from(data['deletedHistory'] as List);
+            digitMode = data['digitMode'] as String;
+            selectedList = data['selectedList'] as String;
+          });
+        }
+      } catch (_) {
+        // Si falla, seguimos con valores por defecto
+      }
+    }
+  }
+
+  Future<void> _saveData() async {
+    final map = {
+      'listNames': listNames,
+      'numbersMap': numbersMap,
+      'surfaceMap': surfaceMap,
+      'weightMap': weightMap,
+      'offsetMap': offsetMap,
+      'deletedHistory': deletedHistory,
+      'digitMode': digitMode,
+      'selectedList': selectedList,
+    };
+    final s = json.encode(map);
+    if (kIsWeb) {
+      saveToLocalStorage('appData', s);
+    } else {
+      final file = await _localFile;
+      await file.writeAsString(s);
+    }
+  }
+
+  Future<void> _wipeAllStorage() async {
+    if (kIsWeb) {
+      clearLocalStorage();
+    } else {
+      final file = await _localFile;
+      if (await file.exists()) await file.delete();
+    }
+  }
+
+  // —— Manejadores de UI (añadiendo _saveData tras cada cambio) ——
   void _addValueFromInput() {
     final parsed = int.tryParse(input);
     if (parsed != null) {
@@ -93,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
         input = '';
         buttonClicked = 'add';
       });
+      _saveData();
       Future.delayed(const Duration(milliseconds: 100), () => setState(() => buttonClicked = ''));
     }
   }
@@ -128,6 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
       input = '';
       buttonClicked = 'mode';
     });
+    _saveData();
     Future.delayed(const Duration(milliseconds: 100), () => setState(() => buttonClicked = ''));
   }
 
@@ -136,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         numbers.insert(0, deletedHistory.removeAt(0));
       });
+      _saveData();
     }
   }
 
@@ -148,7 +230,9 @@ class _HomeScreenState extends State<HomeScreen> {
       deletedHistory.clear();
       digitMode = 'XX';
       input = '';
+      listNames[selectedList] = selectedList;
     });
+    await _saveData();
   }
 
   void _confirmDelete(int index) {
@@ -168,6 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() {
                 deletedHistory.insert(0, numbers.removeAt(indexToDelete!));
               });
+              _saveData();
               Navigator.pop(context);
             },
           ),
@@ -177,144 +262,135 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openConfigDialog() {
-  final sC = TextEditingController(text: surface.toString());
-  final wC = TextEditingController(text: weight.toString());
-  final oC = TextEditingController(text: avgOffset.toString());
+    final sC = TextEditingController(text: surface.toString());
+    final wC = TextEditingController(text: weight.toString());
+    final oC = TextEditingController(text: avgOffset.toString());
 
-  showDialog(
-    context: context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setD) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('Settings', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: sC,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Surface (m²)',
-                labelStyle: TextStyle(color: Colors.white),
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: const Text('Settings', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: sC,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Surface (m²)', labelStyle: TextStyle(color: Colors.white)),
+                style: const TextStyle(color: Colors.white),
               ),
-              style: const TextStyle(color: Colors.white),
-            ),
-            TextField(
-              controller: wC,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Specific Weight',
-                labelStyle: TextStyle(color: Colors.white),
+              TextField(
+                controller: wC,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Specific Weight', labelStyle: TextStyle(color: Colors.white)),
+                style: const TextStyle(color: Colors.white),
               ),
-              style: const TextStyle(color: Colors.white),
-            ),
-            TextField(
-              controller: oC,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Average Offset',
-                labelStyle: TextStyle(color: Colors.white),
+              TextField(
+                controller: oC,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Average Offset', labelStyle: TextStyle(color: Colors.white)),
+                style: const TextStyle(color: Colors.white),
               ),
-              style: const TextStyle(color: Colors.white),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // WIPE APP
-                TextButton(
-                  onPressed: () async {
-                    final c1 = await showDialog<bool>(
-                      context: ctx,
-                      builder: (_) => AlertDialog(
-                        backgroundColor: Colors.grey[900],
-                        title: const Text('Confirm WIPE APP', style: TextStyle(color: Colors.red)),
-                        content: const Text('Erase ALL lists & settings?', style: TextStyle(color: Colors.white)),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
-                        ],
-                      ),
-                    );
-                    if (c1 == true) {
-                      final c2 = await showDialog<bool>(
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // WIPE APP
+                  TextButton(
+                    onPressed: () async {
+                      final c1 = await showDialog<bool>(
                         context: ctx,
                         builder: (_) => AlertDialog(
                           backgroundColor: Colors.grey[900],
-                          title: const Text('ARE YOU SURE?', style: TextStyle(color: Colors.red)),
-                          content: const Text('This cannot be undone.', style: TextStyle(color: Colors.white)),
+                          title: const Text('Confirm WIPE APP', style: TextStyle(color: Colors.red)),
+                          content: const Text('Erase ALL lists & settings?', style: TextStyle(color: Colors.white)),
                           actions: [
                             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes, WIPE APP')),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
                           ],
                         ),
                       );
-                      if (c2 == true) {
-                        numbersMap.forEach((k, v) => v.clear());
-                        surfaceMap.updateAll((_, __) => 1.0);
-                        weightMap.updateAll((_, __) => 1.8);
-                        offsetMap.updateAll((_, __) => 0.0);
-                        listNames.updateAll((k, _) => k);
-                        setState(() {
-                          selectedList = 'A';
-                          input = '';
-                          deletedHistory.clear();
-                          digitMode = 'XX';
-                        });
+                      if (c1 == true) {
+                        final c2 = await showDialog<bool>(
+                          context: ctx,
+                          builder: (_) => AlertDialog(
+                            backgroundColor: Colors.grey[900],
+                            title: const Text('ARE YOU SURE?', style: TextStyle(color: Colors.red)),
+                            content: const Text('This cannot be undone.', style: TextStyle(color: Colors.white)),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes, WIPE APP')),
+                            ],
+                          ),
+                        );
+                        if (c2 == true) {
+                          await _wipeAllStorage();
+                          setState(() {
+                            listNames.updateAll((k, _) => k);
+                            numbersMap.forEach((k, v) => v.clear());
+                            surfaceMap.updateAll((_, __) => 1.0);
+                            weightMap.updateAll((_, __) => 1.8);
+                            offsetMap.updateAll((_, __) => 0.0);
+                            selectedList = 'A';
+                            input = '';
+                            deletedHistory.clear();
+                            digitMode = 'XX';
+                          });
+                        }
                       }
                       Navigator.pop(ctx);
-                    }
-                  },
-                  style: TextButton.styleFrom(backgroundColor: Colors.red.shade700),
-                  child: const Text('WIPE APP', style: TextStyle(color: Colors.white)),
-                ),
-
-                // WIPE LIST
-                TextButton(
-                  onPressed: () async {
-                    final ok = await showDialog<bool>(
-                      context: ctx,
-                      builder: (_) => AlertDialog(
-                        backgroundColor: Colors.grey[900],
-                        title: const Text('Confirm WIPE LIST', style: TextStyle(color: Colors.red)),
-                        content: const Text('Erase this list?', style: TextStyle(color: Colors.white)),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
-                        ],
-                      ),
-                    );
-                    if (ok == true) {
-                      _wipeList();
-                      Navigator.pop(ctx);
-                    }
-                  },
-                  style: TextButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('WIPE LIST', style: TextStyle(color: Colors.white)),
-                ),
-              ],
+                    },
+                    style: TextButton.styleFrom(backgroundColor: Colors.red.shade700),
+                    child: const Text('WIPE APP', style: TextStyle(color: Colors.white)),
+                  ),
+                  // WIPE LIST
+                  TextButton(
+                    onPressed: () async {
+                      final ok = await showDialog<bool>(
+                        context: ctx,
+                        builder: (_) => AlertDialog(
+                          backgroundColor: Colors.grey[900],
+                          title: const Text('Confirm WIPE LIST', style: TextStyle(color: Colors.red)),
+                          content: const Text('Erase this list?', style: TextStyle(color: Colors.white)),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
+                          ],
+                        ),
+                      );
+                      if (ok == true) {
+                        await _wipeList();
+                        Navigator.pop(ctx);
+                      }
+                    },
+                    style: TextButton.styleFrom(backgroundColor: Colors.red),
+                    child: const Text('WIPE LIST', style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(ctx)),
+            TextButton(
+              child: const Text('Save'),
+              onPressed: () {
+                setState(() {
+                  surface = double.tryParse(sC.text.replaceAll(',', '.')) ?? surface;
+                  weight = double.tryParse(wC.text.replaceAll(',', '.')) ?? weight;
+                  avgOffset = double.tryParse(oC.text.replaceAll(',', '.')) ?? avgOffset;
+                });
+                _saveData();
+                Navigator.pop(ctx);
+              },
             ),
           ],
         ),
-        actions: [
-          TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(ctx)),
-          TextButton(
-            child: const Text('Save'),
-            onPressed: () {
-              setState(() {
-                surface = double.tryParse(sC.text.replaceAll(',', '.')) ?? surface;
-                weight = double.tryParse(wC.text.replaceAll(',', '.')) ?? weight;
-                final t = oC.text.trim().isEmpty ? '0' : oC.text;
-                avgOffset = double.tryParse(t.replaceAll(',', '.')) ?? 0.0;
-              });
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
       ),
-    ),
-  );
-}
+    );
+  }
 
   void _showListSelector() {
     showDialog(
@@ -328,12 +404,13 @@ class _HomeScreenState extends State<HomeScreen> {
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: List.generate(3, (c) {
-                  final key = String.fromCharCode(65 + r*3 + c);
+                  final key = String.fromCharCode(65 + r * 3 + c);
                   return GestureDetector(
                     onLongPress: () => _renameListDialog(key, setD),
                     child: ElevatedButton(
                       onPressed: () {
                         setState(() => selectedList = key);
+                        _saveData();
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
@@ -364,7 +441,11 @@ class _HomeScreenState extends State<HomeScreen> {
           controller: ctrl,
           inputFormatters: [LengthLimitingTextInputFormatter(12)],
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(labelText: 'New name',helperText: 'Max 12 characters', labelStyle: TextStyle(color: Colors.white)),
+          decoration: const InputDecoration(
+            labelText: 'New name',
+            helperText: 'Max 12 characters',
+            labelStyle: TextStyle(color: Colors.white),
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -373,6 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final newName = ctrl.text.trim();
               if (newName.isNotEmpty && !listNames.values.contains(newName)) {
                 setState(() => listNames[key] = newName);
+                _saveData();
                 refresh(() {});
               }
               Navigator.pop(context);
@@ -384,33 +466,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGridButton(String label,{bool isDel=false,Color? color,VoidCallback? onPressed}){
-    final clicked = buttonClicked.toLowerCase()==label.toLowerCase();
+  Widget _buildGridButton(String label, {bool isDel = false, Color? color, VoidCallback? onPressed}) {
+    final clicked = buttonClicked.toLowerCase() == label.toLowerCase();
     return GestureDetector(
-      onTap:onPressed??()=>_handleNumberClick(label),
-      child:AnimatedContainer(
-        duration:const Duration(milliseconds:100),
-        decoration:BoxDecoration(
-          color:isDel
-            ?(clicked?Colors.red.shade700:Colors.red.shade500)
-            :(color!=null
-                ?(clicked?color.withOpacity(0.8):color)
-                :(clicked?Colors.blue.shade700:Colors.blue.shade900)),
-          borderRadius:BorderRadius.circular(14),
-          boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:4)],
+      onTap: onPressed ?? () => _handleNumberClick(label),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        decoration: BoxDecoration(
+          color: isDel
+              ? (clicked ? Colors.red.shade700 : Colors.red.shade500)
+              : (color != null
+                  ? (clicked ? color.withOpacity(0.8) : color)
+                  : (clicked ? Colors.blue.shade700 : Colors.blue.shade900)),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
         ),
-        alignment:Alignment.center,
-        child:Text(label, style: const TextStyle(color:Colors.white, fontSize:24, fontWeight:FontWeight.bold)),
+        alignment: Alignment.center,
+        child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final avg = numbers.isEmpty ? 0.0 : numbers.reduce((a, b) => a + b) / numbers.length;
-    final adjustedAvg = avg - avgOffset;
-    final cement = adjustedAvg * surface * weight;
-
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -418,18 +496,13 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.center, // alinea botón con iconos
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'MODE: $digitMode',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
+                      Text('MODE: $digitMode',
+                          style: const TextStyle(color: Colors.white54, fontSize: 12)),
                       const SizedBox(height: 4),
                       ElevatedButton(
                         onPressed: _showListSelector,
@@ -437,26 +510,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           backgroundColor: Colors.teal.shade700,
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
                         ),
-                        child: Text(
-                          listNames[selectedList]!,
-                          style: const TextStyle(
-                            color: Colors.white,      // texto en blanco
-                            fontSize: 15,             // mismo tamaño que antes
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: Text(listNames[selectedList]!,
+                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
                   const Spacer(),
-                  IconButton(
-                    onPressed: _handleUndo,
-                    icon: SvgPicture.asset('assets/undo.svg', width: 24, height: 24),
-                  ),
-                  IconButton(
-                    onPressed: _openConfigDialog,
-                    icon: SvgPicture.asset('assets/settings.svg', width: 24, height: 24),
-                  ),
+                  IconButton(onPressed: _handleUndo,
+                      icon: SvgPicture.asset('assets/undo.svg', width: 24, height: 24)),
+                  IconButton(onPressed: _openConfigDialog,
+                      icon: SvgPicture.asset('assets/settings.svg', width: 24, height: 24)),
                 ],
               ),
               const SizedBox(height: 10),
@@ -466,7 +529,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: double.infinity,
                 decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(10)),
                 alignment: Alignment.centerRight,
-                child: Text(input.isEmpty ? '0' : input, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                child: Text(input.isEmpty ? '0' : input,
+                    style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 20),
               GridView.count(
@@ -498,27 +562,24 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('AVERAGE', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      Text('${adjustedAvg.toStringAsFixed(2)} mm', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                    ],
-                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('AVERAGE', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    Text('${adjustedAvg.toStringAsFixed(2)} mm',
+                        style: const TextStyle(color: Colors.white, fontSize: 16)),
+                  ]),
                   Text('${numbers.length}', style: const TextStyle(color: Colors.red, fontSize: 16)),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text('CEMENT', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      Text('${cement.toStringAsFixed(2)} Kg', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                    ],
-                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    const Text('CEMENT', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    Text('${cement.toStringAsFixed(2)} Kg',
+                        style: const TextStyle(color: Colors.white, fontSize: 16)),
+                  ]),
                 ],
               ),
               const SizedBox(height: 10),
               Expanded(
                 child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 4, crossAxisSpacing: 4, childAspectRatio: 2.5),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4, mainAxisSpacing: 4, crossAxisSpacing: 4, childAspectRatio: 2.5),
                   itemCount: numbers.length,
                   itemBuilder: (context, idx) => GestureDetector(
                     onTap: () => _confirmDelete(idx),
